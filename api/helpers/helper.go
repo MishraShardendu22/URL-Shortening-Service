@@ -13,6 +13,7 @@ func EnsuredPrefixHTTP(url string) string {
 	return url
 }
 
+// Checks if the URL is of a different domain
 func IsDifferentDomain(url string) bool {
 	domain := os.Getenv("DOMAIN")
 
