@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"github.com/ShardenduMishra22/url-shortener-service/api/routes"
-	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
 )
 
@@ -40,7 +40,6 @@ func HandleError(err error) {
 	}
 }
 
-
 // Set up CORS to prevent CSRF attacks
 func SetUpCORS(app *fiber.App) {
 	app.Use(cors.New(cors.Config{
@@ -71,18 +70,13 @@ func TestRouteSetUp(app *fiber.App) {
 // Setting Up Routes for the application
 func SetUpRoutes(app *fiber.App) {
 
-
 	app.Get("/api/v1/:shortID", routes.GetByShortID)
-
 
 	app.Post("/api/v1/addTag", routes.AddTag)
 
-
-	app.Post("/api/v1", routes.ShortenURL)
-
+	app.Post("/api/v1", routes.ShortenHandlerURL)
 
 	app.Put("/api/v1/:shortID", routes.EditURL)
-
 
 	app.Delete("/api/v1/:shortID", routes.DeleteURL)
 }
