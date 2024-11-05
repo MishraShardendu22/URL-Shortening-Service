@@ -11,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+
 type URL struct {
 	ID           string    `json:"id"`
 	OriginalURL  string    `json:"original_url"`
