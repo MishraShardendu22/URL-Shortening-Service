@@ -1,82 +1,91 @@
 package main
 
 import (
+	"crypto/md5"
+	"encoding/hex"
+	"errors"
 	"fmt"
-	"os"
+	"time"
 
-	"github.com/ShardenduMishra22/url-shortener-service/api/routes"
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/joho/godotenv"
 )
 
-func main() {
-	fmt.Println("This is a URL Shortening Service!!")
-
-	// Load .env file
-	if err := godotenv.Load(); err != nil {
-		fmt.Println("Error loading .env file")
-	}
-
-	// Initialize the server
-	app := fiber.New()
-
-	// Setting Up CORS
-	SetUpCORS(app)
-
-	// Test Route Set-up
-	TestRouteSetUp(app)
-
-	// Setting Up Routes
-	SetUpRoutes(app)
-
-	// Listening To The Port
-	ListenToThePort(app)
+type URL struct {
+	ID           string    `json:"id"`
+	OriginalURL  string    `json:"original_url"`
+	ShortURL     string    `json:"short_url"`
+	CreationDate time.Time `json:"creation_date"`
 }
 
-func HandleError(err error) {
-	if err != nil {
-		fmt.Println("Error:", err)
-	}
+var urlDB = make(map[string]URL)
+
+func generateShortURL(originalURL string) string {
+	hasher := md5.New()
+	hasher.Write([]byte(originalURL))
+	hash := hex.EncodeToString(hasher.Sum(nil))
+	return hash[:8]
 }
 
-// Set up CORS to prevent CSRF attacks
-func SetUpCORS(app *fiber.App) {
-	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
-		AllowMethods: "GET, POST, PUT, PATCH, DELETE",
-	}))
+func createURL(originalURL string) string {
+	shortURL := generateShortURL(originalURL)
+	id := shortURL
+	urlDB[id] = URL{
+		ID:           id,
+		OriginalURL:  originalURL,
+		ShortURL:     shortURL,
+		CreationDate: time.Now(),
+	}
+	return shortURL
 }
 
-// Listening To The Port
-func ListenToThePort(app *fiber.App) {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8000"
+func getURL(id string) (URL, error) {
+	url, ok := urlDB[id]
+	if !ok {
+		return URL{}, errors.New("URL not found")
 	}
-	fmt.Println("Listening to port: " + port)
-	if err := app.Listen("0.0.0.0:" + port); err != nil {
-		fmt.Println("Error starting server:", err)
-	}
+	return url, nil
 }
 
-// Route to check if the server is running or not
-func TestRouteSetUp(app *fiber.App) {
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"Message": "This is Working!!"})
+func RootPageURL(c *fiber.Ctx) error {
+	return c.SendString("Hello, world!")
+}
+
+func ShortURLHandler(c *fiber.Ctx) error {
+	var data struct {
+		URL string `json:"url"`
+	}
+	if err := c.BodyParser(&data); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	shortURL := createURL(data.URL)
+	return c.JSON(fiber.Map{
+		"short_url": shortURL,
 	})
 }
 
-// Setting Up Routes for the application
-func SetUpRoutes(app *fiber.App) {
+func redirectURLHandler(c *fiber.Ctx) error {
+	id := c.Params("id")
+	url, err := getURL(id)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "URL not found",
+		})
+	}
+	return c.Redirect(url.OriginalURL, fiber.StatusFound)
+}
 
-	app.Get("/api/v1/:shortID", routes.GetByShortID)
+func main() {
+	app := fiber.New()
 
-	app.Post("/api/v1/addTag", routes.AddTag)
+	app.Get("/", RootPageURL)
+	app.Post("/shorten", ShortURLHandler)
+	app.Get("/redirect/:id", redirectURLHandler)
 
-	app.Post("/api/v1", routes.ShortenHandlerURL)
-
-	app.Put("/api/v1/:shortID", routes.EditURL)
-
-	app.Delete("/api/v1/:shortID", routes.DeleteURL)
+	fmt.Println("Starting server on port 3000...")
+	if err := app.Listen(":3000"); err != nil {
+		fmt.Println("Error on starting server:", err)
+	}
 }
